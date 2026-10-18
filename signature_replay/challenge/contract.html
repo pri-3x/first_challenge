@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ERC-20 Workshop</title>
+  <title>Signature Replay</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -52,6 +52,7 @@
       white-space: pre-wrap;
       word-break: break-word;
     }
+    .voucher-pre { background: #f0f3f6; color: #111; max-height: none; }
     .wallet-pre { background: transparent; color: #111; padding: 0; margin: 4px 0; max-height: none; }
     .private-key { display: none; }
     .pk-toggle { cursor: pointer; color: #007bff; font-weight: 700; }
@@ -76,22 +77,23 @@
   </div>
 
   <div class="card">
-    <h2>ERC-20 Workshop</h2>
-    <p>Claim workshop tokens, approve the collector for the exact required amount, then let the collector pull those tokens with <code>transferFrom</code>.</p>
+    <h2>Signature Replay</h2>
+    <p>The <strong>SignatureVault</strong> pays out ETH to anyone who presents a withdrawal <em>voucher</em> signed by the trusted operator. The operator signed exactly <strong>one</strong> voucher — <strong>1 ETH</strong> to Account&nbsp;#1 — but the vault holds <strong>10 ETH</strong>.</p>
     <ol>
-      <li>Call <code>claim()</code> on <strong>WorkshopToken</strong>. That account receives 100 WORK.</li>
-      <li>Call <code>approve(collector, 25000000000000000000)</code> on <strong>WorkshopToken</strong>. That raw value is exactly 25 tokens.</li>
-      <li>Call <code>collect()</code> on <strong>Collector</strong>. The collector pulls 25 WORK from you.</li>
+      <li>Read <code>Vault.sol</code> below and look closely at how <code>redeem()</code> validates a voucher.</li>
+      <li>You are given the operator's signature <code>(v, r, s)</code> for that one voucher (see <strong>The voucher</strong>).</li>
+      <li>Find a way to take more than the 1 ETH the operator authorized, and empty the vault.</li>
     </ol>
-    <p>A direct <code>transfer</code>, an approval of <code>25</code>, or an approval of any other amount leaves the challenge unsolved.</p>
+    <p>The challenge is solved when the vault's balance reaches <code>0</code> (checked on-chain via <code>solved()</code>).</p>
   </div>
 
   <div class="row">
     <div class="card">
-      <h2>Contracts</h2>
-      <p>WorkshopToken<br><span id="tokenAddress" class="mono copyable">Loading...</span></p>
-      <p>Collector<br><span id="collectorAddress" class="mono copyable">Loading...</span></p>
-      <p>Required approval: <span id="requiredAmount" class="mono">25000000000000000000 (25 WORK)</span></p>
+      <h2>Contract</h2>
+      <p>SignatureVault<br><span id="vaultAddress" class="mono copyable">Loading...</span></p>
+      <p>Operator (trusted signer)<br><span id="operator" class="mono copyable">Loading...</span></p>
+      <p>Vault balance: <span id="balance" class="mono">Loading...</span></p>
+      <p>Total released: <span id="totalReleased" class="mono">Loading...</span></p>
       <p id="solvedBadge"></p>
       <div id="flagBox"><pre id="flagValue"></pre></div>
       <button id="refresh-button" type="button">Refresh</button>
@@ -102,8 +104,22 @@
     </div>
 
     <div class="card">
+      <h2>The voucher</h2>
+      <p class="label">The operator signed this single withdrawal voucher. The signed message is <code>keccak256(abi.encodePacked(to, amount))</code> with the standard <code>\x19Ethereum Signed Message:\n32</code> prefix.</p>
+      <p>Beneficiary (<code>to</code>)<br><span id="v-to" class="mono copyable">Loading...</span></p>
+      <p>Amount (<code>amount</code>)<br><span id="v-amount" class="mono copyable">Loading...</span></p>
+      <p><code>v</code>: <span id="v-v" class="mono copyable">—</span></p>
+      <p><code>r</code><br><span id="v-r" class="mono copyable">Loading...</span></p>
+      <p><code>s</code><br><span id="v-s" class="mono copyable">Loading...</span></p>
+      <p>Raw signature</p>
+      <pre id="v-sig" class="voucher-pre copyable">Loading...</pre>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card">
       <h2>Local accounts</h2>
-      <p class="label">These are Hardhat's local development accounts. Use them only on this chain. Account #0 is the deployer.</p>
+      <p class="label">These are Hardhat's local development accounts. Use them only on this chain. Account #0 is the deployer. The voucher pays Account&nbsp;#1.</p>
 
       <p><strong>Account #0</strong> · deployer</p>
       <pre class="wallet-pre copyable">0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266</pre>
@@ -111,7 +127,7 @@
       <pre id="pk0" class="private-key wallet-pre copyable">0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80</pre>
       <hr>
 
-      <p><strong>Account #1</strong></p>
+      <p><strong>Account #1</strong> · voucher beneficiary</p>
       <pre class="wallet-pre copyable">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</pre>
       <p class="pk-toggle" data-key="pk1">Private key</p>
       <pre id="pk1" class="private-key wallet-pre copyable">0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d</pre>
@@ -140,16 +156,17 @@
       <p class="pk-toggle" data-key="pk5">Private key</p>
       <pre id="pk5" class="private-key wallet-pre copyable">0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba</pre>
     </div>
-  </div>
 
-  <div class="card">
-    <h2>Contract source</h2>
-    <pre id="contractContent">Loading contract source...</pre>
+    <div class="card">
+      <h2>Contract source</h2>
+      <pre id="contractContent">Loading contract source...</pre>
+    </div>
   </div>
 
   <script>
     const API = new URLSearchParams(location.search).get("api") || "http://127.0.0.1:3000";
     let sourceLoaded = false;
+    let voucherLoaded = false;
 
     function setStatus(state, title, sub) {
       const card = document.getElementById("status-card");
@@ -158,21 +175,38 @@
       document.getElementById("status-sub").textContent = sub;
     }
 
+    function toEth(wei) {
+      try { return (BigInt(wei) / (10n ** 15n)).toString() / 1000 + " ETH"; }
+      catch { return wei; }
+    }
+
     async function refresh() {
       try {
         const statusRes = await fetch(API + "/status");
         if (!statusRes.ok) throw new Error("status " + statusRes.status);
         const data = await statusRes.json();
         setStatus("connected", "Server connected", "The challenge API is responding");
-        document.getElementById("tokenAddress").textContent = data.tokenAddress;
-        document.getElementById("collectorAddress").textContent = data.collectorAddress;
-        document.getElementById("requiredAmount").textContent = data.required + " (25 WORK)";
+        document.getElementById("vaultAddress").textContent = data.vaultAddress;
+        document.getElementById("operator").textContent = data.operator;
+        document.getElementById("balance").textContent = data.balance + " wei (" + toEth(data.balance) + ")";
+        document.getElementById("totalReleased").textContent = data.totalReleased + " wei (" + toEth(data.totalReleased) + ")";
         document.getElementById("network").textContent = data.network || "http://127.0.0.1:8545";
         document.getElementById("chainId").textContent = data.chainId || 31337;
 
+        if (!voucherLoaded && data.voucher) {
+          voucherLoaded = true;
+          const v = data.voucher;
+          document.getElementById("v-to").textContent = v.to;
+          document.getElementById("v-amount").textContent = v.amount + " wei (" + toEth(v.amount) + ")";
+          document.getElementById("v-v").textContent = v.v;
+          document.getElementById("v-r").textContent = v.r;
+          document.getElementById("v-s").textContent = v.s;
+          document.getElementById("v-sig").textContent = v.signature;
+        }
+
         if (!sourceLoaded) {
           sourceLoaded = true;
-          const sourceRes = await fetch(API + "/contracts/Workshop.sol");
+          const sourceRes = await fetch(API + "/contracts/Vault.sol");
           document.getElementById("contractContent").textContent = sourceRes.ok
             ? await sourceRes.text()
             : "Contract source is unavailable.";
@@ -228,11 +262,11 @@
       });
     });
 
-    document.querySelectorAll(".copyable").forEach((el) => {
-      el.addEventListener("click", () => {
-        const text = el.textContent.trim();
-        if (text && text !== "Loading...") navigator.clipboard.writeText(text);
-      });
+    document.addEventListener("click", (e) => {
+      const el = e.target.closest(".copyable");
+      if (!el) return;
+      const text = el.textContent.trim();
+      if (text && text !== "Loading...") navigator.clipboard.writeText(text);
     });
 
     refresh();

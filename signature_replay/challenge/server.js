@@ -17,22 +17,18 @@ app.use(cors({
   },
 }));
 
-app.get("/contracts/Workshop.sol", (req, res) => {
-  const file = path.join(__dirname, "contracts", "Workshop.sol");
+app.get("/contracts/Vault.sol", (req, res) => {
+  const file = path.join(__dirname, "contracts", "Vault.sol");
   res.type("text/plain").send(fs.readFileSync(file, "utf8"));
 });
 
 app.get("/abi", (req, res) => {
   try {
-    const token = JSON.parse(fs.readFileSync(
-      path.join(__dirname, "artifacts", "contracts", "Workshop.sol", "WorkshopToken.json"),
+    const vault = JSON.parse(fs.readFileSync(
+      path.join(__dirname, "artifacts", "contracts", "Vault.sol", "SignatureVault.json"),
       "utf8"
     ));
-    const collector = JSON.parse(fs.readFileSync(
-      path.join(__dirname, "artifacts", "contracts", "Workshop.sol", "Collector.json"),
-      "utf8"
-    ));
-    res.json({ WorkshopToken: token.abi, Collector: collector.abi });
+    res.json({ SignatureVault: vault.abi });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "ABI is unavailable" });
