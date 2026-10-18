@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ERC-20 Workshop</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f6f8;
+      color: #222;
+      margin: 0 auto;
+      max-width: 1400px;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px;
+    }
+    h2 { margin: 0 0 16px; font-size: 1.5rem; }
+    p, li { line-height: 1.5; }
+    ol { margin: 0; padding-left: 20px; }
+    code { font-family: Consolas, monospace; background: #f0f3f6; padding: 1px 6px; border-radius: 4px; }
+    .row { display: flex; gap: 24px; align-items: flex-start; }
+    .row .card { flex: 1 1 0; min-width: 0; }
+    .label { color: #666; }
+    .mono { font-family: Consolas, monospace; font-weight: 700; word-break: break-all; }
+    button {
+      margin-top: 12px;
+      margin-right: 8px;
+      padding: 10px 18px;
+      font-weight: 700;
+      color: #fff;
+      background: #007bff;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover { background: #0056b3; }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 12px;
+      padding: 16px;
+      overflow: auto;
+      max-height: 560px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .wallet-pre { background: transparent; color: #111; padding: 0; margin: 4px 0; max-height: none; }
+    .private-key { display: none; }
+    .pk-toggle { cursor: pointer; color: #007bff; font-weight: 700; }
+    hr { border: 0; border-top: 1px solid #ddd; margin: 14px 0; }
+    .status { display: flex; gap: 12px; align-items: center; font-weight: 700; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: #f5c518; }
+    .status.connected .dot { background: #28a745; }
+    .status.lost .dot { background: #dc3545; }
+    .solved { display: inline-block; background: #28a745; color: #fff; border-radius: 6px; padding: 8px 12px; font-weight: 700; }
+    #flagBox { display: none; margin-top: 12px; }
+    #flagBox pre { color: #00ff88; text-align: center; font-weight: 700; }
+    .copyable { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card status" id="status-card">
+    <div class="dot"></div>
+    <div>
+      <div id="status-title">Connecting to server…</div>
+      <div class="label" id="status-sub">Waiting for the challenge API</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>ERC-20 Workshop</h2>
+    <p>Claim workshop tokens, approve the collector for the exact required amount, then let the collector pull those tokens with <code>transferFrom</code>.</p>
+    <ol>
+      <li>Call <code>claim()</code> on <strong>WorkshopToken</strong>. That account receives 100 WORK.</li>
+      <li>Call <code>approve(collector, 25000000000000000000)</code> on <strong>WorkshopToken</strong>. That raw value is exactly 25 tokens.</li>
+      <li>Call <code>collect()</code> on <strong>Collector</strong>. The collector pulls 25 WORK from you.</li>
+    </ol>
+    <p>A direct <code>transfer</code>, an approval of <code>25</code>, or an approval of any other amount leaves the challenge unsolved.</p>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2>Contracts</h2>
+      <p>WorkshopToken<br><span id="tokenAddress" class="mono copyable">Loading...</span></p>
+      <p>Collector<br><span id="collectorAddress" class="mono copyable">Loading...</span></p>
+      <p>Required approval: <span id="requiredAmount" class="mono">25000000000000000000 (25 WORK)</span></p>
+      <p id="solvedBadge"></p>
+      <div id="flagBox"><pre id="flagValue"></pre></div>
+      <button id="refresh-button" type="button">Refresh</button>
+      <button id="toggle-abi-button" type="button">Show ABI</button>
+      <pre id="abiContent" style="display:none">Loading ABI...</pre>
+      <p class="label">Network: <span id="network">http://127.0.0.1:8545</span></p>
+      <p class="label">Chain ID: <span id="chainId">31337</span></p>
+    </div>
+
+    <div class="card">
+      <h2>Local accounts</h2>
+      <p class="label">These are Hardhat's local development accounts. Use them only on this chain. Account #0 is the deployer.</p>
+
+      <p><strong>Account #0</strong> · deployer</p>
+      <pre class="wallet-pre copyable">0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266</pre>
+      <p class="pk-toggle" data-key="pk0">Private key</p>
+      <pre id="pk0" class="private-key wallet-pre copyable">0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80</pre>
+      <hr>
+
+      <p><strong>Account #1</strong></p>
+      <pre class="wallet-pre copyable">0x70997970C51812dc3A010C7d01b50e0d17dc79C8</pre>
+      <p class="pk-toggle" data-key="pk1">Private key</p>
+      <pre id="pk1" class="private-key wallet-pre copyable">0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d</pre>
+      <hr>
+
+      <p><strong>Account #2</strong></p>
+      <pre class="wallet-pre copyable">0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC</pre>
+      <p class="pk-toggle" data-key="pk2">Private key</p>
+      <pre id="pk2" class="private-key wallet-pre copyable">0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a</pre>
+      <hr>
+
+      <p><strong>Account #3</strong></p>
+      <pre class="wallet-pre copyable">0x90F79bf6EB2c4f870365E785982E1f101E93b906</pre>
+      <p class="pk-toggle" data-key="pk3">Private key</p>
+      <pre id="pk3" class="private-key wallet-pre copyable">0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6</pre>
+      <hr>
+
+      <p><strong>Account #4</strong></p>
+      <pre class="wallet-pre copyable">0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65</pre>
+      <p class="pk-toggle" data-key="pk4">Private key</p>
+      <pre id="pk4" class="private-key wallet-pre copyable">0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a</pre>
+      <hr>
+
+      <p><strong>Account #5</strong></p>
+      <pre class="wallet-pre copyable">0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc</pre>
+      <p class="pk-toggle" data-key="pk5">Private key</p>
+      <pre id="pk5" class="private-key wallet-pre copyable">0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Contract source</h2>
+    <pre id="contractContent">Loading contract source...</pre>
+  </div>
+
+  <script>
+    const API = new URLSearchParams(location.search).get("api") || "http://127.0.0.1:3000";
+    let sourceLoaded = false;
+
+    function setStatus(state, title, sub) {
+      const card = document.getElementById("status-card");
+      card.className = "card status " + state;
+      document.getElementById("status-title").textContent = title;
+      document.getElementById("status-sub").textContent = sub;
+    }
+
+    async function refresh() {
+      try {
+        const statusRes = await fetch(API + "/status");
+        if (!statusRes.ok) throw new Error("status " + statusRes.status);
+        const data = await statusRes.json();
+        setStatus("connected", "Server connected", "The challenge API is responding");
+        document.getElementById("tokenAddress").textContent = data.tokenAddress;
+        document.getElementById("collectorAddress").textContent = data.collectorAddress;
+        document.getElementById("requiredAmount").textContent = data.required + " (25 WORK)";
+        document.getElementById("network").textContent = data.network || "http://127.0.0.1:8545";
+        document.getElementById("chainId").textContent = data.chainId || 31337;
+
+        if (!sourceLoaded) {
+          sourceLoaded = true;
+          const sourceRes = await fetch(API + "/contracts/Workshop.sol");
+          document.getElementById("contractContent").textContent = sourceRes.ok
+            ? await sourceRes.text()
+            : "Contract source is unavailable.";
+        }
+
+        const solvedRes = await fetch(API + "/check-solved");
+        const solvedData = await solvedRes.json();
+        const badge = document.getElementById("solvedBadge");
+        const flagBox = document.getElementById("flagBox");
+        if (solvedData.solved) {
+          badge.innerHTML = '<span class="solved">Challenge solved</span>';
+          if (solvedData.flag) {
+            document.getElementById("flagValue").textContent = solvedData.flag;
+            flagBox.style.display = "block";
+          }
+        } else {
+          badge.textContent = "";
+          flagBox.style.display = "none";
+        }
+      } catch (err) {
+        setStatus("lost", "Lost connection", "The challenge API is unreachable");
+        console.error(err);
+      }
+    }
+
+    document.getElementById("refresh-button").addEventListener("click", refresh);
+    document.getElementById("toggle-abi-button").addEventListener("click", async () => {
+      const box = document.getElementById("abiContent");
+      const button = document.getElementById("toggle-abi-button");
+      const open = box.style.display === "block";
+      if (open) {
+        box.style.display = "none";
+        button.textContent = "Show ABI";
+        return;
+      }
+      box.style.display = "block";
+      button.textContent = "Hide ABI";
+      if (box.textContent.trim() === "Loading ABI...") {
+        try {
+          const res = await fetch(API + "/abi");
+          if (!res.ok) throw new Error("abi " + res.status);
+          box.textContent = JSON.stringify(await res.json(), null, 2);
+        } catch (err) {
+          box.textContent = "Unable to load ABI.";
+        }
+      }
+    });
+
+    document.querySelectorAll(".pk-toggle").forEach((toggle) => {
+      toggle.addEventListener("click", () => {
+        const key = document.getElementById(toggle.dataset.key);
+        key.style.display = key.style.display === "block" ? "none" : "block";
+      });
+    });
+
+    document.querySelectorAll(".copyable").forEach((el) => {
+      el.addEventListener("click", () => {
+        const text = el.textContent.trim();
+        if (text && text !== "Loading...") navigator.clipboard.writeText(text);
+      });
+    });
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>

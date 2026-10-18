@@ -1,0 +1,6 @@
+challenge/contracts/Attacker.sol
+challenge/test
+challenge/node_modules
+challenge/cache
+challenge/artifacts
+challenge/ignition/deployments
